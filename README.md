@@ -4,17 +4,20 @@ AI Desktop Pet은 사용자의 바탕화면에서 움직이며 상호작용하�
 
 ---
 
-## 🚀 주요 기능
-* **바탕화면 상호작용:** [여기에 프로그램의 대표적인 특징이나 기능을 간단히 적어주세요.]
-* **AI 기반 반응:** [펫이 어떤 식으로 AI를 활용해 반응하는지 적어주세요.]
-* **커스텀 기능:** [사용자가 펫을 꾸미거나 설정을 바꿀 수 있는 부분이 있다면 적어주세요.]
+## 🚀 현재 완료 사안
+...
 
 ---
 
-## ⚙️ 설치 방법
+## ⚙️ 사용시 
 
-프로그램을 실행하기 전, 아래의 순서대로 설치를 진행해 주세요.
+1. (필수) 다운 받은 폴더에서 VScode/터미널/powershell 를 실행,
+   `npm install` 작성 및 실행
+   - 폴더에 **node_modules** 폴더가 생기면 성공
 
-1. **저장소 복제 (Clone)**
-   ```bash
-   git clone [https://github.com/username/AI-Desktop-Pet.git](https://github.com/username/AI-Desktop-Pet.git)
+2. 실행시에는
+   `npm run desktop` 작성 및 실행
+
+3. exe 파일로 만들때에는
+   `npm run dist:installer` 작성 및 실행
+   **release** 폴더에 **AI DeskPet Setup 0.0.0.exe** 실행 파일이 생기면 실행시 설치됩니다.
