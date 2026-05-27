@@ -1,20 +1,20 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AI Desktop Pet
 
-# Run and deploy your AI Studio app
+AI Desktop Pet은 사용자의 바탕화면에서 움직이며 상호작용하는 인공지능 기반의 데스크톱 펫 프로그램입니다.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/e7355f39-93de-4aa7-a17a-b4a234fe01e4
+## 🚀 주요 기능
+* **바탕화면 상호작용:** [여기에 프로그램의 대표적인 특징이나 기능을 간단히 적어주세요.]
+* **AI 기반 반응:** [펫이 어떤 식으로 AI를 활용해 반응하는지 적어주세요.]
+* **커스텀 기능:** [사용자가 펫을 꾸미거나 설정을 바꿀 수 있는 부분이 있다면 적어주세요.]
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## ⚙️ 설치 방법
 
+프로그램을 실행하기 전, 아래의 순서대로 설치를 진행해 주세요.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **저장소 복제 (Clone)**
+   ```bash
+   git clone [https://github.com/username/AI-Desktop-Pet.git](https://github.com/username/AI-Desktop-Pet.git)
