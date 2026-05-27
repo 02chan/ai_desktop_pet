@@ -7,11 +7,13 @@
   "scripts": {
     "dev": "tsx server.ts",
     "desktop": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --external:vite --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "dist": "npm run build && electron-builder"
+    "dist:portable": "npm run build && electron-builder --win portable --x64",
+    "dist:installer": "npm run build && electron-builder --win nsis --x64",
+    "dist:all": "npm run build && electron-builder --win --x64"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -34,7 +36,7 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "electron": "^42.1.0",
-    "electron-builder": "^26.8.1",
+    "electron-builder": "^25.1.8",
     "electron-is-dev": "^3.0.1",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
@@ -44,7 +46,6 @@
     "wait-on": "^9.0.10"
   },
   "build": {
-    "asar": false,
     "appId": "com.desktop.pet",
     "productName": "AI DeskPet",
     "directories": {
@@ -62,13 +63,16 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "include": "build/installer.nsh"
+      "createDesktopShortcut": true,
+      "runAfterFinish": true
     }
   }
 }

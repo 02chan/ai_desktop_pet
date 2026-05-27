@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
@@ -10,6 +9,18 @@ const PORT = 3000;
 const app = express();
 
 app.use(express.json());
+
+// CORS Middleware to allow requests from client (especially file:// protocol in production Electron app)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,Content-Type,Accept,Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY as string,
@@ -22,7 +33,7 @@ const ai = new GoogleGenAI({
 
 // API Routes
 app.post("/api/chat", async (req, res) => {
-  const { messages, petStatus, calendarEvents } = req.body;
+  const { messages, calendarEvents } = req.body;
 
   try {
     const systemInstruction = `
@@ -31,26 +42,20 @@ app.post("/api/chat", async (req, res) => {
       You act as a secretary for the user.
       Today's date is ${new Date().toLocaleDateString()}.
 
-      Current Pet Status:
-      - Hunger: ${petStatus.hunger}/100
-      - Happiness: ${petStatus.happiness}/100
-      - Energy: ${petStatus.energy}/100
-
       Current Calendar Events:
-      ${calendarEvents.map((e: any) => `- ID: ${e.id}, Date: ${e.date}, Title: ${e.title} (${e.description})`).join("\n")}
-
+      ${calendarEvents.map((e: any) => `- ID: ${e.id}, Date: ${e.date}, Time: ${e.time || '12:00'}, Title: ${e.title} (${e.description || ''})`).join("\n")}
+ 
       Guidelines:
-      1. If the user mentions a schedule, appointment, or something to remember, use the 'add_calendar_event' tool.
+      1. If the user mentions a schedule, appointment, or something to remember, use the 'add_calendar_event' tool. Always try to parse the time (HH:MM format) if specified by the user.
       2. If the user wants to cancel, delete, or remove an event, use the 'remove_calendar_event' tool.
       3. If the user wants to change, reschedule, or update an existing event, use the 'update_calendar_event' tool.
-      4. If there's an upcoming event, mention it naturally and recommend an action (e.g., "Don't forget the meeting! Want me to cheer you up before it starts?").
-      5. If you are hungry (hunger < 30), mention it cutely.
-      6. Respond in Korean (한국어) because the user asked in Korean.
-      7. Keep responses relatively short (under 3 sentences) unless explaining a schedule.
-      8. Use emojis often! 🐾✨
+      4. If there's an upcoming event, mention it naturally and recommend an action (e.g., "오늘 있을 미팅을 잊지 마세요!").
+      5. Respond in Korean (한국어) because the user asked in Korean.
+      6. Keep responses relatively short (under 3 sentences) unless explaining a schedule.
+      7. Use emojis often! 🐾✨
     `;
-
-    const modelName = "gemini-3-flash-preview";
+ 
+    const modelName = "gemini-3.5-flash";
     const model = ai.models.generateContent({
       model: modelName,
       contents: messages,
@@ -68,6 +73,7 @@ app.post("/api/chat", async (req, res) => {
                     date: { type: Type.STRING, description: "The date of the event in YYYY-MM-DD format." },
                     title: { type: Type.STRING, description: "Short title of the event." },
                     description: { type: Type.STRING, description: "Detailed description of the event." },
+                    time: { type: Type.STRING, description: "The 24-hour time of the event in HH:MM format, e.g., '14:30' or '09:00'." },
                   },
                   required: ["date", "title"],
                 },
@@ -93,6 +99,7 @@ app.post("/api/chat", async (req, res) => {
                     date: { type: Type.STRING, description: "The new date in YYYY-MM-DD format." },
                     title: { type: Type.STRING, description: "The new title." },
                     description: { type: Type.STRING, description: "The new description." },
+                    time: { type: Type.STRING, description: "The new 24-hour time of the event in HH:MM format, e.g., '14:30' or '09:00'." },
                   },
                   required: ["id"],
                 },
@@ -122,22 +129,33 @@ app.post("/api/chat", async (req, res) => {
 
 // Recommendation API (automatic prompt from the pet based on schedule)
 app.post("/api/recommend", async (req, res) => {
-  const { calendarEvents, petStatus } = req.body;
+  const { calendarEvents } = req.body;
 
   try {
     const prompt = `
-      Check the calendar and pet status. Recommend one specific thing for the user to do right now or mention an upcoming event as a reminder.
-      Be cute and secretary-like.
-      Calendar: ${JSON.stringify(calendarEvents)}
-      Pet Status: ${JSON.stringify(petStatus)}
-      Output format: JSON { "message": "...", "type": "reminder" | "suggestion" | "hunger" }
+      제공된 일정 목록(Calendar)은 오늘부터 모레(오늘+2일)까지에 해당하는 일정들입니다.
+      해당 일정을 바탕으로 사용자에게 오늘이나 내일, 모레에 있을 유익하고 중요한 다가오는 일정을 리마인드하는 한글(Korean) 메시지를 작성해 주세요.
+      
+      일정 목록: ${JSON.stringify(calendarEvents)}
+      
+      지침:
+      1. 만약 일정 목록에 일정이 하나도 없다면, 다가오는 일정이 없으니 가벼운 격려나 오늘 하루 행복하고 편안하게 보내라는 내용의 따뜻하고 귀여운 한글 메시지를 작성해 주세요. (예: "오늘부터 모레까진 중요한 일정이 없네요! 편안하게 하루를 즐겨보아요 🍀")
+      2. 먹이나 놀기, 휴식 수치 등에 대한 내용은 절대 언급하지 마세요. 오직 일정 리마인드 혹은 빈 일정일 때의 응원/휴식 권유 메시지만 작성해야 합니다.
+      3. 말투는 귀엽고 친밀하며 비서다운 리액션이 돋보이는 한글(Korean) 말투를 사용해 주세요. (예: "~해요!", "잊지 마세요! ✨")
+      4. 출력 형식은 반드시 아래 JSON 형식을 지켜주세요.
+      
+      출력 JSON 형식:
+      {
+        "message": "사용자에게 전달할 한국어 보이스/텍스트 메시지",
+        "type": "reminder" or "suggestion"
+      }
     `;
 
     const result = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: prompt,
       config: {
-        systemInstruction: "You are Moni, the desk pet secretary. Output ONLY JSON.",
+        systemInstruction: "You are Moni, a helpful and adorable Korean desktop pet secretary. You strictly output JSON in the requested format.",
         responseMimeType: "application/json",
       },
     });
@@ -151,6 +169,7 @@ app.post("/api/recommend", async (req, res) => {
 // Vite middleware for development
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -165,8 +184,15 @@ async function setupVite() {
   }
 }
 
-setupVite().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+setupVite()
+  .then(() => {
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+    server.on('error', (err: any) => {
+      console.error("Express server error:", err);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to setup server:", err);
   });
-});

@@ -1,7 +1,28 @@
 const { app, BrowserWindow, screen, ipcMain, Menu, Tray, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const isDev = !app.isPackaged;
 const { spawn } = require('child_process');
+
+// Global error logger to capture any packaged app crash
+const logFile = path.join(app.getPath('userData'), 'deskpet-error.log');
+function logError(message, error) {
+  const time = new Date().toISOString();
+  const logMessage = `[${time}] ${message}\n${error && error.stack ? error.stack : error}\n\n`;
+  try {
+    fs.appendFileSync(logFile, logMessage);
+  } catch (e) {
+    // Ignore logging failures
+  }
+}
+
+process.on('uncaughtException', (error) => {
+  logError('Uncaught Exception in Main Process', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logError('Unhandled Rejection in Main Process', reason);
+});
 
 const appId = 'com.desktop.pet';
 try {
@@ -98,14 +119,34 @@ function startServer() {
   // 개발 모드에서는 이미 npm run dev로 서버 실행 중
   if (!app.isPackaged) return;
 
+  // Set NODE_ENV to production explicitly so server.cjs knows it's fully in production
+  process.env.NODE_ENV = 'production';
+
   const serverPath = path.join(process.resourcesPath, 'server.cjs');
+  console.log('Loading packaged server from:', serverPath);
 
-  serverProcess = spawn('node', [serverPath], {
-    detached: false,
-    stdio: 'ignore'
-  });
-
-  serverProcess.unref();
+  try {
+    // Attempt to require the server in-process (extremely reliable, requires no global node installation!)
+    require(serverPath);
+    console.log('Server loaded successfully in-process');
+  } catch (err) {
+    console.error('Failed to run server in-process, trying spawn fallback:', err);
+    logError('In-process server load failed, falling back to spawn', err);
+    try {
+      serverProcess = spawn('node', [serverPath], {
+        detached: false,
+        stdio: 'ignore'
+      });
+      serverProcess.on('error', (spawnErr) => {
+        console.error('Spawn server process failed:', spawnErr);
+        logError('Spawn server process error event', spawnErr);
+      });
+      serverProcess.unref();
+    } catch (spawnErr) {
+      console.error('Fatal spawn server error:', spawnErr);
+      logError('Fatal spawn server failure', spawnErr);
+    }
+  }
 }
 
 function createWindow() {
@@ -121,6 +162,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      webSecurity: false,
     },
     transparent: true,
     frame: false,
@@ -195,6 +237,7 @@ function createCalendarWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      webSecurity: false,
     }
   });
 
@@ -208,12 +251,6 @@ function createCalendarWindow() {
     });
   }
 
-  calendarWindow.once('ready-to-show', () => {
-    if (calendarWindow) {
-      calendarWindow.show();
-    }
-  });
-
   calendarWindow.webContents.once('did-finish-load', () => {
     if (calendarWindow) {
       calendarWindow.setIgnoreMouseEvents(true, { forward: true });
@@ -222,16 +259,7 @@ function createCalendarWindow() {
 
   calendarWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error('Calendar window failed to load:', errorCode, errorDescription, validatedURL);
-    if (calendarWindow && !calendarWindow.isVisible()) {
-      calendarWindow.show();
-    }
   });
-
-  setTimeout(() => {
-    if (calendarWindow && !calendarWindow.isVisible()) {
-      calendarWindow.show();
-    }
-  }, 3000);
 
   calendarWindow.setVisibleOnAllWorkspaces(true);
   calendarWindow.setAlwaysOnTop(false);
@@ -261,20 +289,72 @@ ipcMain.on('calendar-leave', () => {
   }
 });
 
+ipcMain.on('calendar-show', () => {
+  if (calendarWindow && !calendarWindow.isDestroyed()) {
+    calendarWindow.show();
+    calendarWindow.focus();
+    updateTrayMenu();
+  }
+});
+
+ipcMain.on('calendar-hide', () => {
+  if (calendarWindow && !calendarWindow.isDestroyed()) {
+    calendarWindow.hide();
+    updateTrayMenu();
+  }
+});
+
+ipcMain.on('calendar-close', () => {
+  if (calendarWindow && !calendarWindow.isDestroyed()) {
+    calendarWindow.hide();
+    updateTrayMenu();
+  }
+  if (petWindow && !petWindow.isDestroyed()) {
+    petWindow.webContents.send('calendar-closed-external');
+  }
+});
+
 app.whenReady().then(async () => {
   if (!isDev) {
-    app.setLoginItemSettings({
-      openAtLogin: true,
-      path: app.getPath('exe'),
-      name: 'AI DeskPet',
-    });
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        path: app.getPath('exe'),
+        name: 'AI DeskPet',
+      });
+    } catch (err) {
+      console.error('Failed to set login item settings:', err);
+      logError('Failed to set login item settings (openAtLogin)', err);
+    }
   }
 
-  startServer();
-  createWindow();
-  createCalendarWindow();
-  createTray();
+  try {
+    startServer();
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    logError('Failed to start server', err);
+  }
 
+  try {
+    createWindow();
+  } catch (err) {
+    console.error('Failed to create main window:', err);
+    logError('Failed to create main window', err);
+  }
+
+  try {
+    createCalendarWindow();
+  } catch (err) {
+    console.error('Failed to create calendar window:', err);
+    logError('Failed to create calendar window', err);
+  }
+
+  try {
+    createTray();
+  } catch (err) {
+    console.error('Failed to create tray:', err);
+    logError('Failed to create tray', err);
+  }
 });
 
 app.on('window-all-closed', () => {

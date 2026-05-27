@@ -9,6 +9,8 @@ export interface CalendarEvent {
   date: string; // ISO string or YYYY-MM-DD
   title: string;
   description: string;
+  time?: string; // "HH:MM" format
+  alerted?: boolean;
 }
 
 export interface ChatMessage {
