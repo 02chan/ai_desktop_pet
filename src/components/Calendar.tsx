@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Settings, Lock, Unlock, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CalendarEvent } from '../types';
 import { cn } from '../lib/utils';
+import { Todo } from './Todo';
 
 const isElectron = typeof window !== 'undefined' && typeof window.require === 'function';
 const ipcRenderer = isElectron ? (window as any).require('electron').ipcRenderer : null;
@@ -34,6 +35,17 @@ export const Calendar: React.FC<CalendarProps> = ({
   const [showSettingsInternal, setShowSettingsInternal] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isEventsExpanded, setIsEventsExpanded] = useState(true);
+  const [showTodo, setShowTodo] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_calendar_show_todo');
+      return saved === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('moni_calendar_show_todo', String(showTodo));
+  }, [showTodo]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
@@ -77,8 +89,12 @@ export const Calendar: React.FC<CalendarProps> = ({
   };
 
   return (
-    <div onMouseEnter={() => ipcRenderer?.send('calendar-hover')}
-  onMouseLeave={() => ipcRenderer?.send('calendar-leave')}className="bg-white/90 backdrop-blur-md border border-black/10 rounded-3xl p-6 shadow-2xl w-full max-w-md pointer-events-auto group/calendar relative transition-all duration-500">
+    <div 
+      onMouseEnter={() => ipcRenderer?.send('calendar-hover')}
+      onMouseLeave={() => ipcRenderer?.send('calendar-leave')}
+      className="flex items-start gap-4 pointer-events-auto"
+    >
+      <div className="bg-white/90 backdrop-blur-md border border-black/10 rounded-3xl p-6 shadow-2xl w-full max-w-md pointer-events-auto group/calendar relative transition-all duration-500">
       
       <AnimatePresence>
         {showSettingsInternal && (
@@ -428,6 +444,35 @@ export const Calendar: React.FC<CalendarProps> = ({
           )}
         </AnimatePresence>
       </div>
+
+      {/* To-Do Panel Toggle Arrow */}
+      <button
+        onClick={() => setShowTodo(!showTodo)}
+        className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-[45] bg-white hover:bg-black text-black hover:text-white border border-black/10 w-7 h-7 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center pointer-events-auto"
+        title={showTodo ? "할 일 목록 닫기" : "할 일 목록 열기"}
+      >
+        {showTodo ? (
+          <ChevronLeft className="w-3.5 h-3.5" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5" />
+        )}
+      </button>
     </div>
-  );
+
+    {/* To-Do list on the right */}
+    <AnimatePresence>
+      {showTodo && (
+        <motion.div
+          initial={{ opacity: 0, x: -20, scale: 0.95 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -20, scale: 0.95 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          className="origin-left"
+        >
+          <Todo events={events} textColor={textColor} isLocked={isLocked} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
 };
