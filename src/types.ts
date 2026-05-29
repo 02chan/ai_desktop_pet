@@ -11,6 +11,7 @@ export interface CalendarEvent {
   description: string;
   time?: string; // "HH:MM" format
   alerted?: boolean;
+  alertEnabled?: boolean;
 }
 
 export interface ChatMessage {

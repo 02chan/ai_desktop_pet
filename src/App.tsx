@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Calendar } from './components/Calendar';
 import { Pet } from './components/Pet';
 import { Chat } from './components/Chat';
+import { Status } from './components/Status';
 import { PetStatus, CalendarEvent, ChatMessage } from './types';
-import { motion, AnimatePresence } from 'motion/react';
-import { Monitor, Bell, Settings, Power, Calendar as CalendarIcon } from 'lucide-react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
+import { Monitor, Bell, Settings, Power, Calendar as CalendarIcon, Eye, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from './lib/utils';
 
@@ -16,6 +17,10 @@ const currentPath = typeof window !== 'undefined' ? window.location.hash : '';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  const statusDragControls = useDragControls();
+  const calendarDragControls = useDragControls();
+  const calendarWebDragControls = useDragControls();
   
   const [status, setStatus] = useState<PetStatus>(() => {
     if (typeof window !== 'undefined') {
@@ -73,6 +78,58 @@ export default function App() {
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showCalendarOverlay, setShowCalendarOverlay] = useState(false);
 
+  // Status & customization states
+  const [showStatusOverlay, setShowStatusOverlay] = useState(false);
+  const [petLevel, setPetLevel] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_pet_level');
+      if (saved) return Number(saved);
+    }
+    return 1;
+  });
+  const [petExp, setPetExp] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_pet_exp');
+      if (saved) return Number(saved);
+    }
+    return 0;
+  });
+  const [petFavorability, setPetFavorability] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_pet_favorability');
+      if (saved) return Number(saved);
+    }
+    return 30; // starts at 30
+  });
+  const [petScale, setPetScale] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_pet_scale');
+      if (saved) return Math.max(30, Number(saved));
+    }
+    return 100; // default 100%
+  });
+  const [petHue, setPetHue] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_pet_hue');
+      if (saved) return Number(saved);
+    }
+    return 250; // default 250 (Indigo)
+  });
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('moni_calendar_dark_mode') === 'true';
+    }
+    return false;
+  });
+
+  const [isPetVisible, setIsPetVisible] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('moni_pet_visible');
+      if (saved !== null) return saved === 'true';
+    }
+    return true; // default visible
+  });
+
   // Update clock every second
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -90,6 +147,7 @@ export default function App() {
       // Find an event scheduled for today at the current time that has not run alert yet
       const dueEvent = events.find(event => {
         if (event.alerted) return false;
+        if (event.alertEnabled === false) return false;
 
         const eventDate = new Date(event.date);
         const eventDateStr = format(eventDate, 'yyyy-MM-dd');
@@ -156,6 +214,30 @@ export default function App() {
     localStorage.setItem('moni_chat_messages', JSON.stringify(messages));
   }, [messages]);
 
+  useEffect(() => {
+    localStorage.setItem('moni_pet_level', String(petLevel));
+  }, [petLevel]);
+
+  useEffect(() => {
+    localStorage.setItem('moni_pet_exp', String(petExp));
+  }, [petExp]);
+
+  useEffect(() => {
+    localStorage.setItem('moni_pet_favorability', String(petFavorability));
+  }, [petFavorability]);
+
+  useEffect(() => {
+    localStorage.setItem('moni_pet_scale', String(petScale));
+  }, [petScale]);
+
+  useEffect(() => {
+    localStorage.setItem('moni_pet_hue', String(petHue));
+  }, [petHue]);
+
+  useEffect(() => {
+    localStorage.setItem('moni_pet_visible', String(isPetVisible));
+  }, [isPetVisible]);
+
   // Sync state between windows on storage events
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -168,6 +250,27 @@ export default function App() {
         }
         if (e.key === 'moni_chat_messages' && e.newValue) {
           setMessages(JSON.parse(e.newValue));
+        }
+        if (e.key === 'moni_pet_level' && e.newValue) {
+          setPetLevel(Number(e.newValue));
+        }
+        if (e.key === 'moni_pet_exp' && e.newValue) {
+          setPetExp(Number(e.newValue));
+        }
+        if (e.key === 'moni_pet_favorability' && e.newValue) {
+          setPetFavorability(Number(e.newValue));
+        }
+        if (e.key === 'moni_pet_scale' && e.newValue) {
+          setPetScale(Math.max(30, Number(e.newValue)));
+        }
+        if (e.key === 'moni_pet_hue' && e.newValue) {
+          setPetHue(Number(e.newValue));
+        }
+        if (e.key === 'moni_pet_visible' && e.newValue) {
+          setIsPetVisible(e.newValue === 'true');
+        }
+        if (e.key === 'moni_calendar_dark_mode' && e.newValue) {
+          setIsDarkMode(e.newValue === 'true');
         }
       } catch (err) {
         console.error("Storage sync parse error:", err);
@@ -284,6 +387,7 @@ export default function App() {
           description: e.description || '',
           time: e.time || '12:00',
           alerted: false,
+          alertEnabled: e.alertEnabled !== undefined ? e.alertEnabled : true,
         }));
         setEvents(prev => [...prev, ...aiEvents]);
       }
@@ -305,6 +409,7 @@ export default function App() {
               description: update.description !== undefined ? update.description : e.description,
               time: update.time || e.time,
               alerted: false,
+              alertEnabled: update.alertEnabled !== undefined ? update.alertEnabled : (e.alertEnabled !== undefined ? e.alertEnabled : true),
             };
           }
           return e;
@@ -324,7 +429,7 @@ export default function App() {
 
 
 
-  const addEvent = (date: Date, title: string, description: string, time: string) => {
+  const addEvent = (date: Date, title: string, description: string, time: string, alertEnabled: boolean = true) => {
     const newEvent: CalendarEvent = {
       id: Math.random().toString(36).substring(2, 11),
       date: date.toISOString(),
@@ -332,14 +437,16 @@ export default function App() {
       description,
       time: time || '12:00',
       alerted: false,
+      alertEnabled,
     };
     setEvents(prev => [...prev, newEvent]);
     
     // Moni reacts to new event
     const timeDisplay = time ? ` ${time}분에` : '';
+    const alertMessageEnding = alertEnabled ? ' 가르쳐준 시간에 꼭 알려줄게! 📝⏰' : ' (알림은 꺼져 있어) 📝';
     setMessages(prev => [...prev, { 
       role: 'model', 
-      parts: [{ text: `오! "${title}" 일정을${timeDisplay} 캘린더에 적어뒀어. 가르쳐준 시간에 꼭 알려줄게! 📝⏰` }] 
+      parts: [{ text: `오! "${title}" 일정을${timeDisplay} 캘린더에 적어뒀어.${alertMessageEnding}` }] 
     }]);
     setLastModelMessage(`"${title}" 일정을 추가했어!`);
     setIsTalking(true);
@@ -389,29 +496,34 @@ if (currentPath === '#/calendar' || currentPath === '#calendar') {
       ref={containerRef}
       className="fixed inset-0 bg-transparent overflow-hidden pointer-events-none"
     >
-      <motion.div
-        drag={!isCalendarLocked}
-        dragMomentum={false}
-        dragElastic={0}
-        dragConstraints={containerRef}
-        className="absolute top-12 left-12 pointer-events-auto origin-top"
-      >
-        <Calendar
-          events={events}
-          onAddEvent={addEvent}
-          onUpdateEvent={updateEvent}
-          onRemoveEvent={removeEvent}
-          isLocked={isCalendarLocked}
-          onToggleLock={() => setIsCalendarLocked(!isCalendarLocked)}
-          textColor={calendarColor}
-          onOpenSettings={(color) => setCalendarColor(color)}
-          onClose={() => {
-            if (ipcRenderer) {
-              ipcRenderer.send('calendar-close');
-            }
-          }}
-        />
-      </motion.div>
+      <div className="absolute top-12 left-12 pointer-events-none origin-top">
+        <motion.div
+          drag={!isCalendarLocked}
+          dragListener={false}
+          dragControls={calendarDragControls}
+          dragMomentum={false}
+          dragElastic={0}
+          dragConstraints={containerRef}
+          className="pointer-events-auto"
+        >
+          <Calendar
+            dragControls={calendarDragControls}
+            events={events}
+            onAddEvent={addEvent}
+            onUpdateEvent={updateEvent}
+            onRemoveEvent={removeEvent}
+            isLocked={isCalendarLocked}
+            onToggleLock={() => setIsCalendarLocked(!isCalendarLocked)}
+            textColor={calendarColor}
+            onOpenSettings={(color) => setCalendarColor(color)}
+            onClose={() => {
+              if (ipcRenderer) {
+                ipcRenderer.send('calendar-close');
+              }
+            }}
+          />
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -423,60 +535,140 @@ if (currentPath === '#/calendar' || currentPath === '#calendar') {
       {/* Pet Widget */}
       <div className="absolute inset-0 pointer-events-none z-50">
         <div className="pointer-events-none flex flex-col items-center gap-4">
-          <Pet
-             status={status}
-             isTalking={isTalking}
-             lastMessage={lastModelMessage}
-             onPlay={handlePlay}
-             showChatInput={showChatInput}
-             onToggleChat={() => setShowChatInput(prev => !prev)}
-             showCalendar={showCalendarOverlay}
-             onToggleCalendar={() => setShowCalendarOverlay(prev => !prev)}
-             onSendMessage={handleSendMessage}
-             isLoading={isLoading}
-             messages={messages}
-             dragConstraints={containerRef}
-          />
+          <AnimatePresence>
+            {isPetVisible && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5, y: 56 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: 56 }}
+                transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                className="pointer-events-auto"
+              >
+                <Pet
+                   status={status}
+                   isTalking={isTalking}
+                   lastMessage={lastModelMessage}
+                   onPlay={handlePlay}
+                   showChatInput={showChatInput}
+                   onToggleChat={() => setShowChatInput(prev => !prev)}
+                   showCalendar={showCalendarOverlay}
+                   onToggleCalendar={() => setShowCalendarOverlay(prev => !prev)}
+                   onSendMessage={handleSendMessage}
+                   isLoading={isLoading}
+                   messages={messages}
+                   dragConstraints={containerRef}
+                   showStatus={showStatusOverlay}
+                   onToggleStatus={() => {
+                     setIsDarkMode(localStorage.getItem('moni_calendar_dark_mode') === 'true');
+                     setShowStatusOverlay(prev => !prev);
+                   }}
+                   petScale={petScale}
+                   petHue={petHue}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
+
+      {/* Draggable Status Overlay */}
+      <AnimatePresence>
+        {showStatusOverlay && (
+          <div className="absolute left-[calc(100%-344px)] top-1/4 z-[80] pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 50, scale: 0.95 }}
+              drag
+              dragMomentum={false}
+              dragElastic={0}
+              dragConstraints={containerRef}
+              onMouseEnter={() => ipcRenderer?.send('pet-hover')}
+              onMouseLeave={() => ipcRenderer?.send('pet-leave')}
+              className="pointer-events-auto origin-top"
+            >
+              <Status 
+                level={petLevel}
+                exp={petExp}
+                favorability={petFavorability}
+                scale={petScale}
+                hue={petHue}
+                onClose={() => setShowStatusOverlay(false)}
+                onUpdateScale={setPetScale}
+                onUpdateHue={setPetHue}
+                onUpdateExp={setPetExp}
+                onUpdateLevel={setPetLevel}
+                onUpdateFavorability={setPetFavorability}
+                isDarkMode={isDarkMode}
+                isPetVisible={isPetVisible}
+                onTogglePetVisibility={() => setIsPetVisible(!isPetVisible)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Draggable Calendar Overlay for Web Preview */}
       <AnimatePresence>
         {!isElectron && showCalendarOverlay && (
-          <motion.div
-            initial={{ opacity: 0, x: -50, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -50, scale: 0.95 }}
-            drag
-            dragMomentum={false}
-            dragElastic={0}
-            dragConstraints={containerRef}
-            className="absolute left-6 top-1/4 z-[80] pointer-events-auto origin-top"
-          >
-            <Calendar
-              events={events}
-              onAddEvent={addEvent}
-              onUpdateEvent={updateEvent}
-              onRemoveEvent={removeEvent}
-              isLocked={isCalendarLocked}
-              onToggleLock={() => setIsCalendarLocked(!isCalendarLocked)}
-              textColor={calendarColor}
-              onOpenSettings={(color) => setCalendarColor(color)}
-              onClose={() => setShowCalendarOverlay(false)}
-            />
-          </motion.div>
+          <div className="absolute left-6 top-1/4 z-[80] pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, x: -50, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -50, scale: 0.95 }}
+              drag={!isCalendarLocked}
+              dragListener={false}
+              dragControls={calendarWebDragControls}
+              dragMomentum={false}
+              dragElastic={0}
+              dragConstraints={containerRef}
+              className="pointer-events-auto origin-top"
+            >
+              <Calendar
+                dragControls={calendarWebDragControls}
+                events={events}
+                onAddEvent={addEvent}
+                onUpdateEvent={updateEvent}
+                onRemoveEvent={removeEvent}
+                isLocked={isCalendarLocked}
+                onToggleLock={() => setIsCalendarLocked(!isCalendarLocked)}
+                textColor={calendarColor}
+                onOpenSettings={(color) => setCalendarColor(color)}
+                onClose={() => setShowCalendarOverlay(false)}
+              />
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
-      {/* OS Interaction Tips */}
-      <div className="absolute bottom-4 right-4 z-[100] pointer-events-auto">
+      {/* Pet Visibility Toggle Button in bottom-right floor */}
+      <div className="absolute bottom-6 right-6 z-[100] pointer-events-auto">
         <button 
-          onClick={() => {
-            alert('데스크탑 펫으로 사용하려면:\n1. 이 창을 브라우저 새 탭으로 엽니다.\n2. 브라우저 설정에서 "앱으로 설치"를 선택합니다.\n3. 설치된 앱을 윈도우 시작 프로그램에 추가하세요!\n\n(참고: 배경 클릭 투과는 브라우저 환경에 따라 제한될 수 있습니다)');
-          }}
-          className="p-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-[10px] text-white/40 hover:text-white uppercase font-black transition-all"
+          onClick={() => setIsPetVisible(!isPetVisible)}
+          onMouseEnter={() => ipcRenderer?.send('pet-hover')}
+          onMouseLeave={() => ipcRenderer?.send('pet-leave')}
+          className={cn(
+            "px-2.5 py-1.5 backdrop-blur-sm rounded-xl text-[10px] font-extrabold opacity-25 hover:opacity-100 hover:scale-105 active:scale-95 transition-all duration-350 shadow-sm flex items-center gap-1.5 border cursor-pointer select-none",
+            isPetVisible
+              ? isDarkMode
+                ? "bg-slate-900/80 hover:bg-slate-900/90 text-slate-300 hover:text-white border-white/10"
+                : "bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 border-black/10 shadow-slate-200/50"
+              : isDarkMode
+                ? "bg-indigo-950/80 hover:bg-indigo-950 text-indigo-400 hover:text-indigo-300 border-indigo-900/40"
+                : "bg-indigo-50/95 hover:bg-indigo-100 text-indigo-750 hover:text-indigo-850 border-indigo-100"
+          )}
         >
-          Startup Helper
+          {isPetVisible ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5" />
+              캐릭터 숨기기
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5 animate-bounce" />
+              캐릭터 나타내기
+            </>
+          )}
         </button>
       </div>
     </div>

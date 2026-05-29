@@ -8,63 +8,63 @@
 
 ---
 
-## 🛠️ Tech Stack
-- **Runtime & Frame**: Electron, Node.js
-- **Frontend**: React 18 (TypeScript), Vite, Tailwind CSS
-- **State & Animation**: Framer Motion (`motion/react`), React Hooks
-- **Icons & Timing**: Lucide React, date-fns
-- **AI Engine**: Google Gemini API
+## 🛠️ 기술 스택
+- **구동 환경 및 프레임워크**: Electron, Node.js
+- **프론트엔드**: React 18 (TypeScript), Vite, Tailwind CSS
+- **상태 관리 및 애니메이션**: Framer Motion (`motion/react`), React Hooks
+- **아이콘 및 시간 모듈**: Lucide React, date-fns
+- **인공지능 서비스**: Google Gemini API
 
 ---
 
-## ⚙️ Core Modules & Features
+## ⚙️ 핵심 모듈 및 기능
 
-### 1. Desktop Pet Module (`Pet.tsx`)
-* **Window Drag & Drop**: 마우스 드래그를 통합한 절대 좌표 배치 지원.
-* **Sprite Animation State Machine**: idle, hovering, blinking, talking (TTS 오디오 출력을 감지하여 입 모양 싱크 재생) 애니메이션 스테이트 전환 제어.
-* **Smart Transparent Window overlay**: 마우스 호버 여부에 따른 Click-through (클릭 통과) 및 투명 영역 감지 제어 (`pointer-events` 속성 동적 바인딩).
+### 1. 데스크톱 펫 모듈 (`Pet.tsx`)
+* **마우스 드래그 앤 드롭**: 마우스 왼쪽 버튼 드래그를 통합하여 화면 내 자유로운 절대 좌표 배치 지원.
+* **캐릭터 애니메이션**: 대기, 마우스 호버, 눈 깜빡임, 대화 시 말소리에 연동되는 입 모양 움직임 등 상황별 애니메이션 전환 제어.
+* **투명 윈도우 클릭 방지**: 마우스 호버 여부에 따라 마우스 이벤트를 통과시키는 투명 레이어 감지 및 동적 바인딩 처리.
 
-### 2. AI Chat Module (`Chat.tsx`)
-* **Gemini API Integration**: 프록시 API 핸들러 인터페이스를 통한 실시간 자연어 처리 및 지능형 피드백 수신.
-* **Dual View UI**:
-  - 캐릭터 상단 유동 배치형 '말풍선 모드 (Bubble Overlay)'
-  - 디테일 질문용 '대화 이력 패널 모드 (History Panel)'
-* **Context Preservation**: 대화 이력 세션 스토리지 메모리 보존을 통해 이전 맥락을 유지한 복합 대화 가능.
+### 2. AI 채팅 모듈 (`Chat.tsx`)
+* **Gemini API 연동**: 로컬 프록시 서버를 경유하여 안전하게 실시간 대화 및 인공지능 피드백 구현.
+* **두 가지 채팅 화면 제공**:
+  - 캐릭터 바로 위로 작게 뜨는 직관적인 '말풍선 모드'
+  - 자세한 대화를 볼 수 있는 '대화 기록 패널 모드'
+* **대화 맥락 유지**: 로컬 세션 스토리지를 활용해 이전 대화 기록을 보존하고 앞선 흐름과 이어지는 유기적인 답변 제공.
 
-### 3. Calendar & To-Do List Module (`Calendar.tsx`, `Todo.tsx`)
-* **Grid Calendar**: 월 단위 캘린더 일정 CRUD (생성·조회·수정·삭제).
-* **Audio Synthesizer Alert**: 설정된 타임스탬프와 매칭 시 정밀 스케줄링 폴러가 작동하여 커스텀 알람 사운드 신시사이저 비프음을 출력하고 말풍선 UI 연계.
-* **Slide-out To-Do Widget**: Calendar 컴포넌트 우측 버튼 래핑을 통하여 To-Do 컴포넌트(`Todo.tsx`)를 슬라이딩 애니메이션 형태로 마운트/언마운트 처리.
-* **Multi-Interval Task Sweeper (⏳)**:
-  - **Today (자동)**: 캘린더 당일 일정 데이터 배열 객체(`CalendarEvent[]`)를 실시간 감지하여 자동 할일 목록으로 수집 및 갱신.
-  - **Daily / Weekly / Monthly (수동)**: 사용자 독립 입력 기반 리스크 제어.
-  - **Automated Reset Poll Engine**: 각 일정이 목표 주기 파라미터(지정 시간 0~23시, 지정 요일 0~6, 지정 일자 1~31일)를 초과하였는지 `setInterval` 기준 15초 주기로 스캔 타겟팅 분석 후 클라이언트 로컬 캐시 자동 초기화 처리.
-  - **Dynamic Priority Sorting**: Daily(시간순), Weekly(요일순), Monthly(날짜순)의 정밀 파라미터를 파싱하여 UI 렌더링 전 인라인 오름차순 우선순위 자동 분류.
+### 3. 달력 및 할 일 리스트 모듈 (`Calendar.tsx`, `Todo.tsx`)
+* **그리드 달력**: 월별 달력 안에서 스케줄 추가, 조회, 수정 및 제거 기능 수행.
+* **자동 알림 및 사운드 발생**: 사용자가 등록해 둔 약속 시간이 다가오면 브라우저 알림음 재생과 함께 캐릭터 말풍선으로 일정 자동 전달.
+* **슬라이딩 할 일 창**: 달력 컴포넌트 오른쪽에 배치된 화살표 버튼으로 할 일 창(`Todo.tsx`)을 부드럽게 열고 닫을 수 있는 애니메이션 위젯 탑재.
+* **다양한 주기별 할 일 관리 (⏳)**:
+  - **Today (당일 일정 자동화)**: 달력에 추가해 둔 당일의 모든 알람 일정을 자동으로 동기화해서 할 일 목록에 채워 넣음.
+  - **Daily / Weekly / Monthly (수동 관리)**: 사용자가 각 주기에 맞게 직접 할 일을 등록하고 지울 수 있는 수동 체크리스트 제공.
+  - **주기별 자동 초기화 기능**: 매일 지정한 시각(0~23시), 매주 지정한 요일(월~일), 매월 지정한 일자(1~31일)가 지나면, 브라우저가 기동 중일 때 15초 간격으로 스캔하여 자동 해제(초기화) 진행.
+  - **자동 정렬 기능**: 수동 주기별 일정을 등록하면 Daily는 초기화 시간순, Weekly는 지정 요일순, Monthly는 날짜순으로 보기 편하게 오름차순 자동 정렬 처리.
 
 ---
 
-## 📦 Scripts & Packages
+## 📦 실행 및 빌드 명령어
 
-### 1. 환경 설정 (.env.local)
-루트 경로에 `.env.local` 파라미터 정의가 필요합니다.
+### 1. 환경 변수 등록 (.env.local)
+프로젝트 루트 폴더 내에 `.env.local` 파이널을 생성하고 구글 제미나이 API 키 변수를 넣어줍니다.
 ```env
-GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+GEMINI_API_KEY=여러분의_구글_제미나이_API_키
 ```
 
-### 2. 패키지 실행 및 빌드
+### 2. 명령어 목록
 
-- **종속성 패키지 설치**:
+- **필수 종속성 설치**:
   ```bash
   npm install
   ```
   
-- **데스크톱 개발 모드 실행**:
+- **데스크톱 앱 개발 모드로 실행**:
   ```bash
   npm run desktop
   ```
 
-- **설치용 배포 패키지 (.exe) 빌드**:
+- **설치용 배포 패키지 (.exe) 파일 생성**:
   ```bash
   npm run dist:installer
   ```
-  * 실행 완료 시 `release/AI DeskPet Setup 0.0.0.exe` 파일이 호스트 파일 시스템 내에 생성됩니다.
+  * 빌드가 끝나면 `release/AI DeskPet Setup 0.0.0.exe` 인스톨러가 생성됩니다.
